@@ -7,16 +7,15 @@ resume = None
 data_root = 'data/DOTA/'
 dataset_type = 'DOTADataset'
 metainfo = {
-    'classes':
-        ('A', 'B', 'C', 'D', 'E', 'F'),
-    'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0),
-                (255, 0, 0), (138, 43, 226), (255, 128, 0)]
+    'classes': ('A', 'B', 'C', 'D', 'E', 'F'),
+    'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0),
+                (138, 43, 226), (255, 128, 0)]
 }
 
 file_client_args = dict(backend='disk')
 angle_version = 'le90'
 
-batch_size = 16
+batch_size = 8
 num_workers = 0
 
 model = dict(

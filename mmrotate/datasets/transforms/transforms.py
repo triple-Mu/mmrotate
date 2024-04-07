@@ -7,7 +7,6 @@ import cv2
 import mmcv
 import numpy as np
 import torch
-
 from mmcv.transforms import BaseTransform
 from mmcv.transforms.utils import cache_randomness
 from mmdet.structures.bbox import BaseBoxes, get_box_type
@@ -448,7 +447,10 @@ class ConvertMask2BoxType(BaseTransform):
 
 @TRANSFORMS.register_module()
 class CacheCopyPaste(BaseTransform):
-    def __init__(self, num_copy_thres: int = 20, max_capacity: int = 1024) -> None:
+
+    def __init__(self,
+                 num_copy_thres: int = 20,
+                 max_capacity: int = 1024) -> None:
         self.num_copy_thres = num_copy_thres
         self.max_capacity = max_capacity
         self.cache = []
@@ -456,7 +458,8 @@ class CacheCopyPaste(BaseTransform):
     def transform(self, results: dict) -> dict:
         """The transform function."""
         img = results['img'].copy()
-        for bbox in results['gt_bboxes'].tensor:
+        for bbox, label in zip(results['gt_bboxes'].tensor,
+                               results['gt_bboxes_labels']):
             if len(self.cache) < self.max_capacity:
                 xc, yc, w, h = bbox[:4].round().int().tolist()
                 angle = bbox[4].item() / np.pi * 180
@@ -470,8 +473,14 @@ class CacheCopyPaste(BaseTransform):
                 if crop.size == 0:
                     continue
                 xc_new, yc_new = xc - x_min, yc - y_min
-                bbox_new = np.array([xc_new, yc_new, w, h, angle], dtype=np.float32)
-                self.cache.append((crop, bbox_new))
+                bbox_new = np.array([xc_new, yc_new, w, h, angle],
+                                    dtype=np.float32)
+                if label in (1, 2, 3, 4, 5):
+                    self.cache.append((crop, bbox_new, label))
+                    if label in (4, 5):
+                        self.cache.append((crop, bbox_new, label))
+                        self.cache.append((crop, bbox_new, label))
+                        self.cache.append((crop, bbox_new, label))
             else:
                 random.shuffle(self.cache)
                 self.cache = self.cache[:self.max_capacity]
@@ -490,9 +499,10 @@ class CacheCopyPaste(BaseTransform):
             selects = self.cache[:n_copy]
             self.cache = self.cache[n_copy:]
             for select in selects:
-                im, rbox = select
+                im, rbox, label = select
                 xc, yc, w, h, angle = rbox
-                box = cv2.boxPoints(((xc, yc), (w, h), angle)).round().astype(np.int32)
+                box = cv2.boxPoints(
+                    ((xc, yc), (w, h), angle)).round().astype(np.int32)
                 h, w = im.shape[:2]
                 mask = np.zeros((h, w), dtype=np.uint8)
                 cv2.drawContours(mask, [box], 0, (255), thickness=cv2.FILLED)
@@ -501,17 +511,20 @@ class CacheCopyPaste(BaseTransform):
                 p_at_w = random.randint(0, img_w - w - 1)
                 # img[p_at_h:p_at_h + h, p_at_w:p_at_w + w] = im
                 im = cv2.seamlessClone(
-                    im,
-                    img[p_at_h:p_at_h + h, p_at_w:p_at_w + w],
-                    mask,
-                    (w // 2, h // 2),
-                    cv2.NORMAL_CLONE)
+                    im, img[p_at_h:p_at_h + h, p_at_w:p_at_w + w], mask,
+                    (w // 2, h // 2), cv2.NORMAL_CLONE)
                 img[p_at_h:p_at_h + h, p_at_w:p_at_w + w] = im
                 rbox[0] += p_at_w
                 rbox[1] += p_at_h
                 rbox[4] = rbox[4] / 180 * np.pi
                 rbox = RotatedBoxes(rbox[None], dtype=torch.float32)
-                results['gt_bboxes'] = RotatedBoxes.cat([results['gt_bboxes'], rbox])
+                results['gt_bboxes'] = RotatedBoxes.cat(
+                    [results['gt_bboxes'], rbox])
+                results['gt_bboxes_labels'] = np.append(
+                    results['gt_bboxes_labels'], label)
+                results['gt_ignore_flags'] = np.append(
+                    results['gt_ignore_flags'], False)
+
         results['img'] = img
         return results
 
