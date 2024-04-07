@@ -476,11 +476,14 @@ class CacheCopyPaste(BaseTransform):
                 bbox_new = np.array([xc_new, yc_new, w, h, angle],
                                     dtype=np.float32)
                 if label in (1, 2, 3, 4, 5):
-                    self.cache.append((crop, bbox_new, label))
+                    self.cache.append((crop, bbox_new, int(label)))
                     if label in (4, 5):
-                        self.cache.append((crop, bbox_new, label))
-                        self.cache.append((crop, bbox_new, label))
-                        self.cache.append((crop, bbox_new, label))
+                        self.cache.append(
+                            (crop.copy(), bbox_new.copy(), int(label)))
+                        self.cache.append(
+                            (crop.copy(), bbox_new.copy(), int(label)))
+                        self.cache.append(
+                            (crop.copy(), bbox_new.copy(), int(label)))
             else:
                 random.shuffle(self.cache)
                 self.cache = self.cache[:self.max_capacity]
@@ -510,6 +513,7 @@ class CacheCopyPaste(BaseTransform):
                 p_at_h = random.randint(0, img_h - h - 1)
                 p_at_w = random.randint(0, img_w - w - 1)
                 # img[p_at_h:p_at_h + h, p_at_w:p_at_w + w] = im
+                print(im.shape)
                 im = cv2.seamlessClone(
                     im, img[p_at_h:p_at_h + h, p_at_w:p_at_w + w], mask,
                     (w // 2, h // 2), cv2.NORMAL_CLONE)

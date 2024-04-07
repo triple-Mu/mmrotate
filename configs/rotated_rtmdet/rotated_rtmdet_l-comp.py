@@ -1,7 +1,7 @@
 _base_ = ['./_base_/default_runtime.py', './_base_/schedule_3x.py']
 
 # coco_ckpt = 'rtmdet_l_8xb32-300e_coco_20220719_112030-5a0be7c4.pth'  # noqa
-load_from = 'epoch_300.pth'
+load_from = 'rotated_rtmdet_l-coco_pretrain-3x-dota_ms-06d248a2.pth'
 resume = None
 
 data_root = 'data/DOTA/'
@@ -166,3 +166,11 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(type='DOTAMetric', metric='mAP')
 test_evaluator = val_evaluator
+
+_base_.default_hooks['checkpoint'] = dict(
+    type='CheckpointHook',
+    interval=12,
+    max_keep_ckpts=10,
+    save_best='mAP',
+    rule='greater',
+)
