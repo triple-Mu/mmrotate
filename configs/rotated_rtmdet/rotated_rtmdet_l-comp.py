@@ -171,6 +171,6 @@ _base_.default_hooks['checkpoint'] = dict(
     type='CheckpointHook',
     interval=12,
     max_keep_ckpts=10,
-    save_best='mAP',
+    save_best='dota/mAP',
     rule='greater',
 )
