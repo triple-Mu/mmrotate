@@ -513,7 +513,6 @@ class CacheCopyPaste(BaseTransform):
                 p_at_h = random.randint(0, img_h - h - 1)
                 p_at_w = random.randint(0, img_w - w - 1)
                 # img[p_at_h:p_at_h + h, p_at_w:p_at_w + w] = im
-                print(im.shape)
                 im = cv2.seamlessClone(
                     im, img[p_at_h:p_at_h + h, p_at_w:p_at_w + w], mask,
                     (w // 2, h // 2), cv2.NORMAL_CLONE)
