@@ -1,8 +1,12 @@
-_base_ = ['./_base_/default_runtime.py', './_base_/schedule_3x.py']
+_base_ = ['./_base_/default_runtime.py']
 
 # coco_ckpt = 'rtmdet_l_8xb32-300e_coco_20220719_112030-5a0be7c4.pth'  # noqa
 load_from = 'rotated_rtmdet_l-coco_pretrain-3x-dota_ms-06d248a2.pth'
 resume = None
+
+max_epochs = 300
+base_lr = 0.001
+interval = 1
 
 data_root = 'data/DOTA/'
 dataset_type = 'DOTADataset'
@@ -15,8 +19,8 @@ metainfo = {
 file_client_args = dict(backend='disk')
 angle_version = 'le90'
 
-batch_size = 8
-num_workers = 0
+batch_size = 16
+num_workers = 8
 
 model = dict(
     type='mmdet.RTMDet',
@@ -169,8 +173,37 @@ test_evaluator = val_evaluator
 
 _base_.default_hooks['checkpoint'] = dict(
     type='CheckpointHook',
-    interval=12,
+    interval=interval,
     max_keep_ckpts=10,
     save_best='dota/mAP',
     rule='greater',
 )
+
+train_cfg = dict(
+    type='EpochBasedTrainLoop', max_epochs=max_epochs, val_interval=interval)
+
+val_cfg = dict(type='ValLoop')
+test_cfg = dict(type='TestLoop')
+
+param_scheduler = [
+    # dict(
+    #     type='LinearLR',
+    #     start_factor=1.0e-5,
+    #     by_epoch=False,
+    #     begin=0,
+    #     end=1000),
+    dict(
+        type='CosineAnnealingLR',
+        eta_min=base_lr * 0.01,
+        begin=0,
+        end=max_epochs,
+        T_max=max_epochs,
+        by_epoch=True,
+        convert_to_iter_based=True),
+]
+
+optim_wrapper = dict(
+    type='OptimWrapper',
+    optimizer=dict(type='AdamW', lr=base_lr, weight_decay=0.05),
+    paramwise_cfg=dict(
+        norm_decay_mult=0, bias_decay_mult=0, bypass_duplicate=True))

@@ -1,7 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import random
 from numbers import Number
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import mmcv
@@ -448,11 +448,15 @@ class ConvertMask2BoxType(BaseTransform):
 @TRANSFORMS.register_module()
 class CacheCopyPaste(BaseTransform):
 
-    def __init__(self,
-                 num_copy_thres: int = 20,
-                 max_capacity: int = 1024) -> None:
+    def __init__(
+        self,
+        num_copy_thres: int = 20,
+        max_capacity: int = 1024,
+        scale_range: Tuple[float, float] = (0.8, 1.2)
+    ) -> None:
         self.num_copy_thres = num_copy_thres
         self.max_capacity = max_capacity
+        self.scale_range = scale_range
         self.cache = []
 
     def transform(self, results: dict) -> dict:
@@ -475,15 +479,26 @@ class CacheCopyPaste(BaseTransform):
                 xc_new, yc_new = xc - x_min, yc - y_min
                 bbox_new = np.array([xc_new, yc_new, w, h, angle],
                                     dtype=np.float32)
-                if label in (1, 2, 3, 4, 5):
-                    self.cache.append((crop, bbox_new, int(label)))
-                    if label in (4, 5):
+                if label == 0:
+                    if random.random() < 0.25:
                         self.cache.append(
                             (crop.copy(), bbox_new.copy(), int(label)))
+                elif label == 1:
+                    if random.random() < 0.5:
                         self.cache.append(
                             (crop.copy(), bbox_new.copy(), int(label)))
+                elif label == 2:
+                    if random.random() < 0.75:
                         self.cache.append(
                             (crop.copy(), bbox_new.copy(), int(label)))
+                else:
+                    for _ in range(3):
+                        s_ = random.uniform(*self.scale_range)
+                        crop_ = cv2.resize(crop, (0, 0), fx=s_, fy=s_)
+                        bbox_new_ = bbox_new.copy()
+                        bbox_new_[:4] *= s_
+                        self.cache.append((crop_, bbox_new_, int(label)))
+
             else:
                 random.shuffle(self.cache)
                 self.cache = self.cache[:self.max_capacity]
