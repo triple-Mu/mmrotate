@@ -2,6 +2,12 @@
 dataset_type = 'DOTADataset'
 data_root = 'data/DOTA/'
 
+metainfo = {
+    'classes': ('A', 'B', 'C', 'D', 'E', 'F'),
+    'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0),
+                (138, 43, 226), (255, 128, 0)]
+}
+
 file_client_args = dict(backend='disk')
 
 train_pipeline = [
@@ -58,6 +64,7 @@ train_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
+        metainfo=metainfo,
         ann_file='train/annfiles/',
         data_prefix=dict(img_path='train/images/'),
         img_shape=(1024, 1024),
@@ -72,6 +79,7 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
+        metainfo=metainfo,
         ann_file='val/annfiles/',
         data_prefix=dict(img_path='val/images/'),
         img_shape=(1024, 1024),
