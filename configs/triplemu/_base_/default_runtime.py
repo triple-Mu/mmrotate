@@ -6,7 +6,7 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(
         type='CheckpointHook',
-        interval=1,
+        interval=12,
         max_keep_ckpts=30,
         save_best='dota/mAP',
         rule='greater'),
