@@ -1,6 +1,11 @@
 # dataset settings
 dataset_type = 'DOTADataset'
-data_root = 'data/split_ss_dota/'
+data_root = 'data/DOTA/'
+metainfo = {
+    'classes': ('A', 'B', 'C', 'D', 'E', 'F'),
+    'palette': [(165, 42, 42), (189, 183, 107), (0, 255, 0), (255, 0, 0),
+                (138, 43, 226), (255, 128, 0)]
+}
 
 backend_args = None
 
@@ -58,8 +63,9 @@ train_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='trainval/annfiles/',
-        data_prefix=dict(img_path='trainval/images/'),
+        metainfo=metainfo,
+        ann_file='train/annfiles/',
+        data_prefix=dict(img_path='train/images/'),
         filter_cfg=dict(filter_empty_gt=True),
         pipeline=train_pipeline))
 val_dataloader = dict(
@@ -71,8 +77,9 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file='trainval/annfiles/',
-        data_prefix=dict(img_path='trainval/images/'),
+        metainfo=metainfo,
+        ann_file='val/annfiles/',
+        data_prefix=dict(img_path='val/images/'),
         test_mode=True,
         pipeline=val_pipeline))
 test_dataloader = val_dataloader
