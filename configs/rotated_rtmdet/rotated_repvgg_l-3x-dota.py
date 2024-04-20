@@ -2,7 +2,7 @@ _base_ = [
     './_base_/default_runtime.py', './_base_/schedule_3x.py',
     './_base_/dota_rr.py'
 ]
-checkpoint = 'https://download.openmmlab.com/mmdetection/v3.0/rtmdet/cspnext_rsb_pretrain/cspnext-l_8xb256-rsb-a1-600e_in1k-6a760974.pth'  # noqa
+checkpoint = 'https://download.openmmlab.com/mmyolo/v0/yolov6/yolov6_l_syncbn_fast_8xb32-300e_coco/yolov6_l_syncbn_fast_8xb32-300e_coco_20221109_183156-91e3c447.pth'  # noqa
 custom_imports = dict(imports=['mmyolo.models'], allow_failed_imports=True)
 num_classes = 6
 angle_version = 'le90'
@@ -22,7 +22,9 @@ model = dict(
         deepen_factor=1,
         widen_factor=1,
         norm_cfg=dict(type='BN', momentum=0.03, eps=0.001),
-        act_cfg=dict(type='ReLU')),
+        act_cfg=dict(type='ReLU'),
+        init_cfg=dict(
+            type='Pretrained', prefix='backbone.', checkpoint=checkpoint)),
     neck=dict(
         _scope_='mmyolo',
         type='mmyolo.YOLOv6RepPAFPN',
