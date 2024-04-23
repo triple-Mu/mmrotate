@@ -2,7 +2,6 @@
 import math
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from mmdet.apis import init_detector
 
@@ -110,7 +109,7 @@ def main():
         export_net.half()
 
     x = torch.randn((1, 1024, 1024, 3) if MERGE_MEAN_STD else (1, 3, 1024, 1024), device='cuda:0')
-    y = export_net(x)
+    export_net(x)
 
     torch.onnx.export(
         export_net,
@@ -126,23 +125,6 @@ def main():
             'small': {0: 'batch_size'}
         }
     )
-
-    # # torch -> paddle
-    # import paddle
-    # from x2paddle.convert import pytorch2paddle
-    # input_spec = [
-    #     # paddle.static.InputSpec(
-    #     # shape=[1, 3, 1024, 1024], name="image", dtype="float32")
-    #     x
-    # ]
-    #
-    # pytorch2paddle(module=export_net,
-    #                save_dir="./pd_model",
-    #                jit_type="trace",
-    #                input_examples=input_spec)
-    '''
-    x2paddle --framework=onnx --model=rotated_rtmdet_l.onnx --save_dir=pd_model_onnx2paddle
-    '''
 
 
 if __name__ == '__main__':

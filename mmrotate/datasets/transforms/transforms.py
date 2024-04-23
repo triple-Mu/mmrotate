@@ -1,10 +1,12 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import random
 from numbers import Number
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import cv2
 import mmcv
 import numpy as np
+import torch
 from mmcv.transforms import BaseTransform
 from mmcv.transforms.utils import cache_randomness
 from mmdet.structures.bbox import BaseBoxes, get_box_type
@@ -12,6 +14,7 @@ from mmdet.structures.mask import PolygonMasks
 from mmengine.utils import is_list_of
 
 from mmrotate.registry import TRANSFORMS
+from mmrotate.structures.bbox import RotatedBoxes
 
 
 @TRANSFORMS.register_module()
@@ -439,4 +442,112 @@ class ConvertMask2BoxType(BaseTransform):
         repr_str = self.__class__.__name__
         repr_str += f'(box_type_cls={self.box_type_cls}, '
         repr_str += f'keep_mask={self.keep_mask})'
+        return repr_str
+
+
+@TRANSFORMS.register_module()
+class CacheCopyPaste(BaseTransform):
+
+    def __init__(
+        self,
+        num_copy_thres: int = 20,
+        max_capacity: int = 1024,
+        scale_range: Tuple[float, float] = (0.8, 1.2)
+    ) -> None:
+        self.num_copy_thres = num_copy_thres
+        self.max_capacity = max_capacity
+        self.scale_range = scale_range
+        self.cache = []
+
+    def transform(self, results: dict) -> dict:
+        """The transform function."""
+        img = results['img'].copy()
+        for bbox, label in zip(results['gt_bboxes'].tensor,
+                               results['gt_bboxes_labels']):
+            if len(self.cache) < self.max_capacity:
+                xc, yc, w, h = bbox[:4].round().int().tolist()
+                angle = bbox[4].item() / np.pi * 180
+                points = cv2.boxPoints(((xc, yc), (w, h), angle))
+                points = points.round().astype(np.int32)
+                x_min = np.min(points[:, 0]).item()
+                y_min = np.min(points[:, 1]).item()
+                x_max = np.max(points[:, 0]).item()
+                y_max = np.max(points[:, 1]).item()
+                crop = img[y_min:y_max, x_min:x_max].copy()
+                if crop.size == 0:
+                    continue
+                xc_new, yc_new = xc - x_min, yc - y_min
+                bbox_new = np.array([xc_new, yc_new, w, h, angle],
+                                    dtype=np.float32)
+                if label == 0:
+                    if random.random() < 0.25:
+                        self.cache.append(
+                            (crop.copy(), bbox_new.copy(), int(label)))
+                elif label == 1:
+                    if random.random() < 0.5:
+                        self.cache.append(
+                            (crop.copy(), bbox_new.copy(), int(label)))
+                elif label == 2:
+                    if random.random() < 0.75:
+                        self.cache.append(
+                            (crop.copy(), bbox_new.copy(), int(label)))
+                else:
+                    for _ in range(3):
+                        s_ = random.uniform(*self.scale_range)
+                        crop_ = cv2.resize(crop, (0, 0), fx=s_, fy=s_)
+                        bbox_new_ = bbox_new.copy()
+                        bbox_new_[:4] *= s_
+                        self.cache.append((crop_, bbox_new_, int(label)))
+
+            else:
+                random.shuffle(self.cache)
+                self.cache = self.cache[:self.max_capacity]
+                break
+        num_gt = results['gt_bboxes'].shape[0]
+        if num_gt < self.num_copy_thres:
+            n_copy = random.randint(0, self.num_copy_thres - num_gt)
+        else:
+            n_copy = random.randint(0, self.num_copy_thres // 2)
+
+        if n_copy > len(self.cache) or n_copy == 0:
+            return results
+        else:
+            img_h, img_w = img.shape[:2]
+            random.shuffle(self.cache)
+            selects = self.cache[:n_copy]
+            self.cache = self.cache[n_copy:]
+            for select in selects:
+                im, rbox, label = select
+                xc, yc, w, h, angle = rbox
+                box = cv2.boxPoints(
+                    ((xc, yc), (w, h), angle)).round().astype(np.int32)
+                h, w = im.shape[:2]
+                mask = np.zeros((h, w), dtype=np.uint8)
+                cv2.drawContours(mask, [box], 0, (255), thickness=cv2.FILLED)
+
+                p_at_h = random.randint(0, img_h - h - 1)
+                p_at_w = random.randint(0, img_w - w - 1)
+                # img[p_at_h:p_at_h + h, p_at_w:p_at_w + w] = im
+                im = cv2.seamlessClone(
+                    im, img[p_at_h:p_at_h + h, p_at_w:p_at_w + w], mask,
+                    (w // 2, h // 2), cv2.NORMAL_CLONE)
+                img[p_at_h:p_at_h + h, p_at_w:p_at_w + w] = im
+                rbox[0] += p_at_w
+                rbox[1] += p_at_h
+                rbox[4] = rbox[4] / 180 * np.pi
+                rbox = RotatedBoxes(rbox[None], dtype=torch.float32)
+                results['gt_bboxes'] = RotatedBoxes.cat(
+                    [results['gt_bboxes'], rbox])
+                results['gt_bboxes_labels'] = np.append(
+                    results['gt_bboxes_labels'], label)
+                results['gt_ignore_flags'] = np.append(
+                    results['gt_ignore_flags'], False)
+
+        results['img'] = img
+        return results
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(num_copy_thres={self.num_copy_thres}), '
+        repr_str += f'(max_capacity={self.max_capacity})'
         return repr_str

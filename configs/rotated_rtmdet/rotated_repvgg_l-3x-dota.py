@@ -1,41 +1,45 @@
 _base_ = [
     './_base_/default_runtime.py', './_base_/schedule_3x.py',
-    './_base_/dota_rr_ms.py'
+    './_base_/dota_rr.py'
 ]
-checkpoint = 'https://download.openmmlab.com/mmdetection/v3.0/rtmdet/cspnext_rsb_pretrain/cspnext-l_8xb256-rsb-a1-600e_in1k-6a760974.pth'  # noqa
-
+checkpoint = 'https://download.openmmlab.com/mmyolo/v0/yolov6/yolov6_l_syncbn_fast_8xb32-300e_coco/yolov6_l_syncbn_fast_8xb32-300e_coco_20221109_183156-91e3c447.pth'  # noqa
+custom_imports = dict(imports=['mmyolo.models'], allow_failed_imports=True)
+num_classes = 6
 angle_version = 'le90'
 model = dict(
-    type='mmdet.RTMDet',
+    _scope_='mmyolo',
+    type='mmyolo.YOLODetector',
     data_preprocessor=dict(
         type='mmdet.DetDataPreprocessor',
-        mean=[103.53, 116.28, 123.675],
-        std=[57.375, 57.12, 58.395],
-        bgr_to_rgb=False,
+        mean=[0., 0., 0.],
+        std=[255., 255., 255.],
+        bgr_to_rgb=True,
         boxtype2tensor=False,
         batch_augments=None),
     backbone=dict(
-        type='mmdet.CSPNeXt',
-        arch='P5',
-        expand_ratio=0.5,
+        _scope_='mmyolo',
+        type='mmyolo.YOLOv6EfficientRep',
         deepen_factor=1,
         widen_factor=1,
-        channel_attention=True,
-        norm_cfg=dict(type='SyncBN'),
-        act_cfg=dict(type='SiLU'),
+        norm_cfg=dict(type='BN', momentum=0.03, eps=0.001),
+        act_cfg=dict(type='ReLU'),
         init_cfg=dict(
             type='Pretrained', prefix='backbone.', checkpoint=checkpoint)),
     neck=dict(
-        type='mmdet.CSPNeXtPAFPN',
+        _scope_='mmyolo',
+        type='mmyolo.YOLOv6RepPAFPN',
+        deepen_factor=1,
+        widen_factor=1,
         in_channels=[256, 512, 1024],
-        out_channels=256,
-        num_csp_blocks=3,
-        expand_ratio=0.5,
-        norm_cfg=dict(type='SyncBN'),
-        act_cfg=dict(type='SiLU')),
+        out_channels=[256, 256, 256],
+        num_csp_blocks=12,
+        norm_cfg=dict(type='BN', momentum=0.03, eps=0.001),
+        act_cfg=dict(type='ReLU'),
+    ),
     bbox_head=dict(
-        type='RotatedRTMDetSepBNHead',
-        num_classes=15,
+        _scope_='mmrotate',
+        type='mmrotate.RotatedRTMDetSepBNHead',
+        num_classes=num_classes,
         in_channels=256,
         stacked_convs=2,
         feat_channels=256,
@@ -58,7 +62,7 @@ model = dict(
         scale_angle=False,
         loss_angle=None,
         norm_cfg=dict(type='SyncBN'),
-        act_cfg=dict(type='SiLU')),
+        act_cfg=dict(type='ReLU')),
     train_cfg=dict(
         assigner=dict(
             type='mmdet.DynamicSoftLabelAssigner',

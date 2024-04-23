@@ -84,6 +84,7 @@ pre_transform = [
 
 train_pipeline = [
     *pre_transform,
+    # dict(type='CacheCopyPaste', num_copy_thres=20, max_capacity=1024),
     dict(
         type='mmdet.CachedMosaic',
         img_scale=(1024, 1024),

@@ -2,9 +2,15 @@ _base_ = [
     './_base_/default_runtime.py', './_base_/schedule_3x.py',
     './_base_/dota_rr.py'
 ]
-checkpoint = 'https://download.openmmlab.com/mmdetection/v3.0/rtmdet/cspnext_rsb_pretrain/cspnext-l_8xb256-rsb-a1-600e_in1k-6a760974.pth'  # noqa
 
+load_from = 'rotated_rtmdet_l-coco_pretrain-3x-dota_ms-06d248a2.pth'
+resume = False
+
+num_classes = 6
 angle_version = 'le90'
+
+base_lr = 0.00025
+epochs = 300
 model = dict(
     type='mmdet.RTMDet',
     data_preprocessor=dict(
@@ -22,9 +28,7 @@ model = dict(
         widen_factor=1,
         channel_attention=True,
         norm_cfg=dict(type='SyncBN'),
-        act_cfg=dict(type='SiLU'),
-        init_cfg=dict(
-            type='Pretrained', prefix='backbone.', checkpoint=checkpoint)),
+        act_cfg=dict(type='SiLU')),
     neck=dict(
         type='mmdet.CSPNeXtPAFPN',
         in_channels=[256, 512, 1024],
@@ -35,7 +39,7 @@ model = dict(
         act_cfg=dict(type='SiLU')),
     bbox_head=dict(
         type='RotatedRTMDetSepBNHead',
-        num_classes=15,
+        num_classes=num_classes,
         in_channels=256,
         stacked_convs=2,
         feat_channels=256,
@@ -74,6 +78,30 @@ model = dict(
         nms=dict(type='nms_rotated', iou_threshold=0.1),
         max_per_img=2000),
 )
+
+optim_wrapper = dict(
+    optimizer=dict(lr=base_lr, type='AdamW', weight_decay=0.05),
+    paramwise_cfg=dict(
+        bias_decay_mult=0, bypass_duplicate=True, norm_decay_mult=0),
+    type='OptimWrapper')
+
+param_scheduler = [
+    dict(
+        begin=0, by_epoch=False, end=1000, start_factor=1e-05,
+        type='LinearLR'),
+    dict(
+        T_max=epochs // 2,
+        begin=epochs // 2,
+        by_epoch=True,
+        convert_to_iter_based=True,
+        end=300,
+        eta_min=0.05 * base_lr,
+        type='CosineAnnealingLR'),
+]
+train_cfg = dict(
+    max_epochs=epochs, type='EpochBasedTrainLoop', val_interval=12)
+val_cfg = dict(type='ValLoop')
+test_cfg = dict(type='TestLoop')
 
 # batch_size = (2 GPUs) x (4 samples per GPU) = 8
 train_dataloader = dict(batch_size=4, num_workers=4)
