@@ -2,7 +2,9 @@
 from typing import Sequence, Union
 
 import mmcv
+import numpy as np
 from mmcv.transforms import BaseTransform
+from mmdet.datasets.transforms import LoadAnnotations as MMDET_LoadAnnotations
 
 from mmrotate.registry import TRANSFORMS
 
@@ -64,4 +66,21 @@ class LoadPatchFromNDArray(BaseTransform):
         results['img'] = patch
         results['img_shape'] = patch.shape[:2]
         results['ori_shape'] = patch.shape[:2]
+        return results
+
+
+@TRANSFORMS.register_module()
+class MMROTATE_LoadAnnotations(MMDET_LoadAnnotations):
+
+    def _load_regressions(self, results: dict) -> None:
+        gt_bboxes_regressions = []
+        for instance in results.get('instances', []):
+            gt_bboxes_regressions.append(instance['bbox_regression'])
+        # TODO: Inconsistent with mmcv, consider how to deal with it later.
+        results['gt_bboxes_regressions'] = np.array(
+            gt_bboxes_regressions, dtype=np.float32)
+
+    def transform(self, results: dict) -> dict:
+        super().transform(results)
+        self._load_regressions(results)
         return results
